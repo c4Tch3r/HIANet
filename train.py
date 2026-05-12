@@ -219,7 +219,8 @@ try:
             auxiliary_z = last_output.narrow(1, 4, 4)
 
             containers = iwt(steg_containers).reshape(ac.batch_size, 1, ac.image_size ** 2 * 3)
-            restored_covers = containers.squeeze(1).cpu().detach()
+            restored_covers_gpu = containers.squeeze(1)   # 用于训练
+            restored_covers_cpu = restored_covers_gpu.detach().cpu()   # 用于spectrogram
 
             output_z_first = gauss_noise(auxiliary_z.shape)
             output_rev_first = torch.cat((steg_containers, output_z_first), 1)
@@ -259,14 +260,15 @@ try:
             g_loss = guide_loss(covers, containers)
             r_loss = reconstruction_loss(secrets, secret_rev)
 
-            _, _, ori_spectrogram = audio_to_spectrogram_batch(covers.squeeze(1).cpu().detach().numpy(), fs=22050)
-            _, _, processed_spectrogram = audio_to_spectrogram_batch(restored_covers, fs=22050)
+            covers_cpu = covers.squeeze(1).detach().cpu()
+            _, _, ori_spectrogram = audio_to_spectrogram_batch(covers_cpu, fs=22050)
+            _, _, processed_spectrogram = audio_to_spectrogram_batch(restored_covers_cpu, fs=22050)
 
             spec1_log = apply_log_scaling(ori_spectrogram)
             spec2_log = apply_log_scaling(processed_spectrogram)
 
-            s_loss = spec_loss(covers.squeeze(1), restored_covers.cuda())
-            dtw_loss = softDTW(covers.squeeze(1).cpu(), restored_covers.cpu()).cuda()
+            s_loss = spec_loss(covers.squeeze(1), restored_covers_gpu)
+            dtw_loss = softDTW(covers.squeeze(1), restored_covers_gpu)
 
             total_loss = ac.lambda_guide * g_loss + ac.lambda_reconstruction * r_loss + ac.lambda_spectrogram * s_loss + ac.lambda_dtw * dtw_loss
             total_loss.backward()

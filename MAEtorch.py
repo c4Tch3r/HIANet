@@ -45,7 +45,7 @@ def calculate_heatmap(x, sr=22050, device='cuda'):
     low_mask[freq_diff > 0] = torch.pow(10, -5 * freq_diff[freq_diff > 0].abs() / 20.0)
     low_mask[freq_diff == 0] = 0.0
 
-    decay_1d = torch.tensor([10 ** (-0.02 * dt) for dt in range(1, 6)], device=device, dtype=torch.float32)
+    decay_1d = torch.tensor([10 ** (-0.02 * abs(dt - 3)) for dt in range(1, 6)], device=device, dtype=torch.float32)
 
     inverse_mel_scale = torchaudio.transforms.InverseMelScale(
         n_mels=n_mels,
